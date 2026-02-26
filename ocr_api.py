@@ -193,37 +193,58 @@ class OCRPipeline:
         )
 
         # 5. Format Output
-        resjsonarray = []
-        for idx, lineobj in enumerate(root.findall(".//LINE")):
-            xmin, ymin = int(lineobj.get("X")), int(lineobj.get("Y"))
-            line_w, line_h = int(lineobj.get("WIDTH")), int(lineobj.get("HEIGHT"))
-            conf = float(lineobj.get("CONF", 0.0))
-            
-            jsonobj = {
-                "boundingBox": [[xmin, ymin], [xmin, ymin+line_h], [xmin+line_w, ymin], [xmin+line_w, ymin+line_h]],
-                "id": idx,
-                "isVertical": "true",
-                "text": resultlinesall[idx],
-                "isTextline": "true",
-                "confidence": conf
-            }
-            resjsonarray.append(jsonobj)
+        contents = []
+        
+        # We need a stable mapping from the XML line object to its numerical index 
+        # so we fetch the correct recognized string from resultlinesall.
+        all_lines_flat = root.findall(".//LINE")
+        line_to_idx = {line: i for i, line in enumerate(all_lines_flat)}
+        processed_lines = set()
 
-        alltextlist = resultlinesall
-        if alllinecnt > 0 and tatelinecnt / alllinecnt > 0.5:
-            alltextlist = alltextlist[::-1]
+        # Group lines by Paragraph (TEXTBLOCK)
+        for textblock in root.findall(".//TEXTBLOCK"):
+            tb_json_array = []
+            for lineobj in textblock.findall(".//LINE"):
+                idx = line_to_idx[lineobj]
+                processed_lines.add(idx)
+                
+                xmin, ymin = int(lineobj.get("X")), int(lineobj.get("Y"))
+                line_w, line_h = int(lineobj.get("WIDTH")), int(lineobj.get("HEIGHT"))
+                conf = float(lineobj.get("CONF", 0.0))
+                
+                jsonobj = {
+                    "boundingBox": [[xmin, ymin], [xmin+line_w, ymin], [xmin+line_w, ymin+line_h], [xmin, ymin+line_h]],
+                    "id": idx,
+                    "text": resultlinesall[idx],
+                    "confidence": conf
+                }
+                tb_json_array.append(jsonobj)
+                
+            if tb_json_array:
+                contents.append(tb_json_array)
 
-        full_text = "\n".join(alltextlist)
+        # Capture any lines that were NOT wrapped in a TEXTBLOCK 
+        # (e.g., from the fallback block in Step 3 where lines are attached to PAGE)
+        for lineobj in all_lines_flat:
+            idx = line_to_idx[lineobj]
+            if idx not in processed_lines:
+                xmin, ymin = int(lineobj.get("X")), int(lineobj.get("Y"))
+                line_w, line_h = int(lineobj.get("WIDTH")), int(lineobj.get("HEIGHT"))
+                conf = float(lineobj.get("CONF", 0.0))
+                
+                jsonobj = {
+                    "boundingBox": [[xmin, ymin], [xmin+line_w, ymin], [xmin+line_w, ymin+line_h], [xmin, ymin+line_h]],
+                    "id": idx,
+                    "text": resultlinesall[idx],
+                    "confidence": conf
+                }
+                contents.append([jsonobj])
+
         processing_time = time.time() - start
 
         # Construct final dict
         result_payload = {
-            "contents": [resjsonarray],
-            "imginfo": {
-                "img_width": img_w,
-                "img_height": img_h,
-            },
-            "full_text": full_text,
+            "contents": contents,
             "processing_time_sec": processing_time
         }
 
