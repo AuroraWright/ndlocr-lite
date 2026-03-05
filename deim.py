@@ -3,6 +3,7 @@ import time
 import yaml
 import onnxruntime
 import numpy as np
+import cv2
 from typing import Tuple, List
 import xml.etree.ElementTree as ET
 
@@ -53,19 +54,17 @@ class DEIM:
 
     def preprocess(self, img: np.ndarray) -> np.ndarray:
         max_wh=max(img.shape[0],img.shape[1])
-        paddedimg=np.zeros((max_wh,max_wh,3)).astype(np.uint8)
-        paddedimg[:img.shape[0],:img.shape[1],:]=img.copy()
-        pil_image = Image.fromarray(paddedimg)
-        self.image_width,self.image_height = pil_image.size
-        pil_resized = pil_image.resize((self.input_width, self.input_height))
-        resized=np.array(pil_resized)
-        #resized=resized[:,:,::-1]
-        
-        # Scale input pixel value to 0 to 1
-        resized = resized / 255.0
+        paddedimg=np.zeros((max_wh,max_wh,3),dtype=np.uint8)
+        paddedimg[:img.shape[0],:img.shape[1],:]=img
+        self.image_width=max_wh
+        self.image_height=max_wh
+        resized=cv2.resize(paddedimg,(self.input_width, self.input_height),interpolation=cv2.INTER_CUBIC)
+        input_image=resized.astype(np.float32)
+        input_image/=255.0
         mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        input_image= (resized-mean) / std
+        input_image-=mean
+        input_image/=std
         input_image = input_image.transpose(2,0,1)
         input_tensor = input_image[np.newaxis, :, :, :].astype(np.float32)
         return input_tensor

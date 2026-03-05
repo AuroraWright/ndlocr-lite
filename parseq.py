@@ -3,6 +3,7 @@ import time
 import yaml
 import onnxruntime
 import numpy as np
+import cv2
 from typing import Tuple, List
 
 class PARSEQ:
@@ -47,25 +48,22 @@ class PARSEQ:
         class_ids = np.argmax(predictions[:, 4:], axis=1)
 
     def preprocess(self, img: np.ndarray) -> np.ndarray:
-        pil_image = Image.fromarray(img)
-        if pil_image.height>pil_image.width:
-            pil_image =pil_image.transpose(Image.ROTATE_90)
-        pil_resized = pil_image.resize((self.input_width, self.input_height))
-        
-        resized = np.array(pil_resized, dtype=np.float32)
-        resized = resized[:,:,::-1]
-        input_image = resized / 255.0
-        input_image = 2.0*(input_image-0.5)
+        h,w=img.shape[:2]
+        if h>w:
+            img=cv2.rotate(img,cv2.ROTATE_90_COUNTERCLOCKWISE)
+        resized=cv2.resize(img,(self.input_width, self.input_height),interpolation=cv2.INTER_LINEAR)
+        input_image=np.ascontiguousarray(resized[:,:,::-1]).astype(np.float32)
+        input_image/=127.5
+        input_image-=1.0
         input_image = input_image.transpose(2,0,1)
-        input_tensor = input_image[np.newaxis, :, :, :].astype(np.float32)
-        return input_tensor
+        return input_image[np.newaxis, :, :, :]
     
     def read(self, img: np.ndarray) -> List:
-        if img is None:
-            return None
+        if img is None or img.size == 0:
+            return ""
         input_tensor = self.preprocess(img)
         outputs = self.session.run(self.output_names, {self.input_names[0]: input_tensor})[0]
-        indices = np.argmax(outputs, axis=2)[0]
+        indices = np.argmax(outputs[0], axis=1)
         stop_idx = np.where(indices == 0)[0]
         end_pos = stop_idx[0] if stop_idx.size > 0 else len(indices)
         resval = indices[:end_pos].tolist()
