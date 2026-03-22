@@ -147,16 +147,11 @@ class OCRPipeline:
         
         # 3. Extract Lines
         alllineobj = []
-        tatelinecnt = 0
-        alllinecnt = 0
-
         for idx, lineobj in enumerate(root.findall(".//LINE")):
             xmin, ymin = int(lineobj.get("X")), int(lineobj.get("Y"))
             line_w, line_h = int(lineobj.get("WIDTH")), int(lineobj.get("HEIGHT"))
             
             pred_char_cnt = float(lineobj.get("PRED_CHAR_CNT", 100.0))
-            if line_h > line_w: tatelinecnt += 1
-            alllinecnt += 1
             
             # Crop image slice
             lineimg = img[ymin:ymin+line_h, xmin:xmin+line_w, :]
@@ -180,9 +175,6 @@ class OCRPipeline:
                     
                     pred_char_cnt = det.get("pred_char_count", 100.0)
                     line_elem.set("PRED_CHAR_CNT", f"{pred_char_cnt:0.3f}")
-                    
-                    if line_h > line_w: tatelinecnt += 1
-                    alllinecnt += 1
                     
                     lineimg = img[int(ymin):int(ymax), int(xmin):int(xmax), :]
                     alllineobj.append(RecogLine(lineimg, idx, pred_char_cnt))
