@@ -26,10 +26,8 @@ class RecogLine:
     def __lt__(self, other):
         return self.idx < other.idx
 
-def process_cascade(alllineobj,recognizer30,recognizer50,recognizer100,is_cascade=True):
-    targetdflist30=[]
-    targetdflist50=[]
-    targetdflist100=[]
+def process_cascade(alllineobj:RecogLine,recognizer30,recognizer50,recognizer100,is_cascade=True):
+    targetdflist30,targetdflist50,targetdflist100,targetdflist200=[],[],[],[]
     for lineobj in alllineobj:
         if lineobj.pred_char_cnt==3 and is_cascade:
             targetdflist30.append(lineobj)
@@ -39,7 +37,7 @@ def process_cascade(alllineobj,recognizer30,recognizer50,recognizer100,is_cascad
             targetdflist100.append(lineobj)
     targetdflistall=[]
     with ThreadPoolExecutor(thread_name_prefix="thread") as executor:
-        resultlines30,resultlines50,resultlines100=[],[],[]
+        resultlines30,resultlines50,resultlines100,resultlines200=[],[],[],[]
         if len(targetdflist30)>0:
             resultlines30 = executor.map(recognizer30.read, [t.npimg for t in targetdflist30])
             resultlines30 = list(resultlines30)
@@ -69,7 +67,21 @@ def process_cascade(alllineobj,recognizer30,recognizer50,recognizer100,is_cascad
             pred_str=resultlines100[i]
             lineobj=targetdflist100[i]
             lineobj.pred_str=pred_str
-            targetdflistall.append(lineobj)                    
+            if len(pred_str)>=98 and lineobj.npimg.shape[0]<lineobj.npimg.shape[1]:
+                baseimg=lineobj.npimg
+                tmplineobj_1=RecogLine(npimg=baseimg[:,:baseimg.shape[1]//2,:],idx=lineobj.idx,pred_char_cnt=100)
+                tmplineobj_2=RecogLine(npimg=baseimg[:,baseimg.shape[1]//2:,:],idx=lineobj.idx,pred_char_cnt=100)
+                targetdflist200.append(tmplineobj_1)
+                targetdflist200.append(tmplineobj_2)
+            else:
+                targetdflistall.append(lineobj)
+        if len(targetdflist200)>0:
+            resultlines200 = executor.map(recognizer100.read, [t.npimg for t in targetdflist200])
+            resultlines200 = list(resultlines200)
+            for i in range(0,len(targetdflist200)-1,2):
+                ia=targetdflist200[i]
+                lineobj=RecogLine(npimg=None,idx=ia.idx,pred_char_cnt=100,pred_str=resultlines200[i]+resultlines200[i+1])
+                targetdflistall.append(lineobj)
         targetdflistall=sorted(targetdflistall)
         resultlinesall=[t.pred_str for t in targetdflistall]
     return resultlinesall
@@ -179,9 +191,10 @@ def process(args):
         for det in detections:
             xmin,ymin,xmax,ymax=det["box"]
             conf=det["confidence"]
+            char_count=det["pred_char_count"]
             if det["class_index"]==0:
                 resultobj[0][0].append([xmin,ymin,xmax,ymax])
-            resultobj[1][det["class_index"]].append([xmin,ymin,xmax,ymax,conf])
+            resultobj[1][det["class_index"]].append([xmin,ymin,xmax,ymax,conf,char_count])
         xmlstr=convert_to_xml_string3(img_w, img_h, imgname, classeslist, resultobj)
         xmlstr="<OCRDATASET>"+xmlstr+"</OCRDATASET>"
         #print(xmlstr)

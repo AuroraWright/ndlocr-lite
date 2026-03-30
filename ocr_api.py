@@ -18,62 +18,72 @@ logger = logging.getLogger(__name__)
 base_dir = Path(__file__).resolve().parent
 
 class RecogLine:
-    def __init__(self, npimg: np.ndarray, idx: int, pred_char_cnt: int, pred_str: str = ""):
+    def __init__(self,npimg:np.ndarray,idx:int,pred_char_cnt:int,pred_str:str=""):
         self.npimg = npimg
         self.idx   = idx
         self.pred_char_cnt = pred_char_cnt
         self.pred_str = pred_str
-
-    def __lt__(self, other):  
+    def __lt__(self, other):
         return self.idx < other.idx
 
-def process_cascade(alllineobj, recognizer30, recognizer50, recognizer100, is_cascade=True):
-    targetdflist30, targetdflist50, targetdflist100 = [], [], []
+def process_cascade(alllineobj:RecogLine,recognizer30,recognizer50,recognizer100,is_cascade=True):
+    targetdflist30,targetdflist50,targetdflist100,targetdflist200=[],[],[],[]
     for lineobj in alllineobj:
-        if lineobj.pred_char_cnt == 3 and is_cascade:
+        if lineobj.pred_char_cnt==3 and is_cascade:
             targetdflist30.append(lineobj)
-        elif lineobj.pred_char_cnt == 2 and is_cascade:
+        elif lineobj.pred_char_cnt==2 and is_cascade:
             targetdflist50.append(lineobj)
         else:
             targetdflist100.append(lineobj)
-            
-    targetdflistall = []
+    targetdflistall=[]
     with ThreadPoolExecutor(thread_name_prefix="thread") as executor:
-        resultlines30, resultlines50, resultlines100 = [], [], []
-        
-        if len(targetdflist30) > 0:
-            resultlines30 = list(executor.map(recognizer30.read, [t.npimg for t in targetdflist30]))
+        resultlines30,resultlines50,resultlines100,resultlines200=[],[],[],[]
+        if len(targetdflist30)>0:
+            resultlines30 = executor.map(recognizer30.read, [t.npimg for t in targetdflist30])
+            resultlines30 = list(resultlines30)
         for i in range(len(targetdflist30)):
-            pred_str = resultlines30[i]
-            lineobj = targetdflist30[i]
-            if len(pred_str) >= 25:
+            pred_str=resultlines30[i]
+            lineobj=targetdflist30[i]
+            if len(pred_str)>=25:
                 targetdflist50.append(lineobj)
             else:
-                lineobj.pred_str = pred_str
+                lineobj.pred_str=pred_str
                 targetdflistall.append(lineobj)
-                
-        if len(targetdflist50) > 0:
-            resultlines50 = list(executor.map(recognizer50.read, [t.npimg for t in targetdflist50]))
+        if len(targetdflist50)>0:
+            resultlines50 = executor.map(recognizer50.read, [t.npimg for t in targetdflist50])
+            resultlines50 = list(resultlines50)
         for i in range(len(targetdflist50)):
-            pred_str = resultlines50[i]
-            lineobj = targetdflist50[i]
-            if len(pred_str) >= 45:
+            pred_str=resultlines50[i]
+            lineobj=targetdflist50[i]
+            if len(pred_str)>=45:
                 targetdflist100.append(lineobj)
             else:
-                lineobj.pred_str = pred_str
+                lineobj.pred_str=pred_str
                 targetdflistall.append(lineobj)
-                
-        if len(targetdflist100) > 0:
-            resultlines100 = list(executor.map(recognizer100.read, [t.npimg for t in targetdflist100]))
+        if len(targetdflist100)>0:
+            resultlines100 = executor.map(recognizer100.read, [t.npimg for t in targetdflist100])
+            resultlines100 = list(resultlines100)
         for i in range(len(targetdflist100)):
-            pred_str = resultlines100[i]
-            lineobj = targetdflist100[i]
-            lineobj.pred_str = pred_str
-            targetdflistall.append(lineobj)                    
-            
-        targetdflistall = sorted(targetdflistall)
-        resultlinesall = [t.pred_str for t in targetdflistall]
-        
+            pred_str=resultlines100[i]
+            lineobj=targetdflist100[i]
+            lineobj.pred_str=pred_str
+            if len(pred_str)>=98 and lineobj.npimg.shape[0]<lineobj.npimg.shape[1]:
+                baseimg=lineobj.npimg
+                tmplineobj_1=RecogLine(npimg=baseimg[:,:baseimg.shape[1]//2,:],idx=lineobj.idx,pred_char_cnt=100)
+                tmplineobj_2=RecogLine(npimg=baseimg[:,baseimg.shape[1]//2:,:],idx=lineobj.idx,pred_char_cnt=100)
+                targetdflist200.append(tmplineobj_1)
+                targetdflist200.append(tmplineobj_2)
+            else:
+                targetdflistall.append(lineobj)
+        if len(targetdflist200)>0:
+            resultlines200 = executor.map(recognizer100.read, [t.npimg for t in targetdflist200])
+            resultlines200 = list(resultlines200)
+            for i in range(0,len(targetdflist200)-1,2):
+                ia=targetdflist200[i]
+                lineobj=RecogLine(npimg=None,idx=ia.idx,pred_char_cnt=100,pred_str=resultlines200[i]+resultlines200[i+1])
+                targetdflistall.append(lineobj)
+        targetdflistall=sorted(targetdflistall)
+        resultlinesall=[t.pred_str for t in targetdflistall]
     return resultlinesall
 
 
@@ -134,9 +144,10 @@ class OCRPipeline:
         for det in detections:
             xmin, ymin, xmax, ymax = det["box"]
             conf = det["confidence"]
+            char_count = det["pred_char_count"]
             if det["class_index"] == 0:
                 resultobj[0][0].append([xmin, ymin, xmax, ymax])
-            resultobj[1][det["class_index"]].append([xmin, ymin, xmax, ymax, conf])
+            resultobj[1][det["class_index"]].append([xmin, ymin, xmax, ymax, conf, char_count])
             
         # 2. Calculate Reading Order via XML (In-Memory)
         # We pass a dummy name since we aren't saving it
