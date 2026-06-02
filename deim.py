@@ -58,9 +58,11 @@ class DEIM:
         paddedimg[:img.shape[0],:img.shape[1],:]=img
         self.image_width=max_wh
         self.image_height=max_wh
-        resized=cv2.resize(paddedimg,(self.input_width, self.input_height),interpolation=cv2.INTER_CUBIC)
-        input_image=resized.astype(np.float32)
-        input_image/=255.0
+        #resized=cv2.resize(paddedimg,(self.input_width, self.input_height),interpolation=cv2.INTER_AREA)
+        pil_image = Image.fromarray(paddedimg)
+        pil_resized = pil_image.resize((self.input_width, self.input_height))
+        resized = np.array(pil_resized)
+        input_image=resized/255.0
         mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
         input_image-=mean
@@ -102,6 +104,8 @@ class DEIM:
             self.image_height / self.input_width
         ], dtype=np.float32)
         boxes = (predictions[:, :4] * scales).astype(np.int32)
+        boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, self.image_width)
+        boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, self.image_height)
         detections = []
         for bbox, score, label,char_count in zip(boxes, scores, class_ids,char_counts):
             class_index=int(label)-1

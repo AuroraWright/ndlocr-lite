@@ -91,14 +91,15 @@ class OCRPipeline:
     def __init__(self, 
                  det_weights: str = str(Path.home() / ".config" / "ndlocr_lite" / "deim-s-1024x1024.onnx"), 
                  det_classes: str = str(base_dir / "config" / "ndl.yaml"), 
-                 rec_weights30: str = str(Path.home() / ".config" / "ndlocr_lite" / "parseq-ndl-16x256-30-tiny-192epoch-tegaki3.onnx"), 
-                 rec_weights50: str = str(Path.home() / ".config" / "ndlocr_lite" / "parseq-ndl-16x384-50-tiny-146epoch-tegaki2.onnx"), 
-                 rec_weights100: str = str(Path.home() / ".config" / "ndlocr_lite" / "parseq-ndl-16x768-100-tiny-165epoch-tegaki2.onnx"), 
+                 rec_weights30: str = str(Path.home() / ".config" / "ndlocr_lite" / "parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx"), 
+                 rec_weights50: str = str(Path.home() / ".config" / "ndlocr_lite" / "parseq-ndl-24x384-50-tiny-300epoch-tegaki3-r8data-202604.onnx"), 
+                 rec_weights100: str = str(Path.home() / ".config" / "ndlocr_lite" / "parseq-ndl-24x768-100-tiny-153epoch-tegaki3-r8data-202604.onnx"), 
                  rec_classes: str = str(base_dir / "config" / "NDLmoji.yaml"), 
                  device: str = "cpu",
                  det_score_threshold: float = 0.2, 
                  det_conf_threshold: float = 0.25, 
-                 det_iou_threshold: float = 0.2):
+                 det_iou_threshold: float = 0.2,
+                 enable_tcy: bool = False):
         
         # 1. Initialize Detector
         logger.debug("Loading Detector...")
@@ -117,9 +118,18 @@ class OCRPipeline:
         charlist = list(charobj["model"]["charset_train"])
         
         # 3. Initialize Recognizers
-        self.recognizer30 = PARSEQ(model_path=rec_weights30, charlist=charlist, device=device)
-        self.recognizer50 = PARSEQ(model_path=rec_weights50, charlist=charlist, device=device)
-        self.recognizer100 = PARSEQ(model_path=rec_weights100, charlist=charlist, device=device)
+        recognizer30 = PARSEQ(model_path=rec_weights30, charlist=charlist, device=device)
+        recognizer50 = PARSEQ(model_path=rec_weights50, charlist=charlist, device=device)
+        recognizer100 = PARSEQ(model_path=rec_weights100, charlist=charlist, device=device)
+        if enable_tcy:
+            from .tcy_wrapper import TateChuYokoWrapper
+            self.recognizer30 = TateChuYokoWrapper(recognizer30)
+            self.recognizer50 = TateChuYokoWrapper(recognizer50)
+            self.recognizer100 = TateChuYokoWrapper(recognizer100)
+        else:
+            self.recognizer30 = recognizer30
+            self.recognizer50 = recognizer50
+            self.recognizer100 = recognizer100
         logger.debug("Models loaded successfully.")
 
     def process_image(self, pil_image: Image.Image) -> dict:

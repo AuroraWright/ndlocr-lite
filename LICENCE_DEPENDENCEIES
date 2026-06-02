@@ -758,11 +758,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-# mmdet
+# deimv2
 
-Copyright 2018-2023 OpenMMLab. All rights reserved.
+Copyright (C) INTELLINDUST INFORMATION TECHNOLOGY (SHENZHEN) CO., LTD. and all its affiliates.  
 
-                                 Apache License
+DEIM is licensed under the Apache License. 
+
+A copy of the Apache License License is included in this file.
+
+
+                                Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
 
@@ -950,7 +955,7 @@ Copyright 2018-2023 OpenMMLab. All rights reserved.
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright 2018-2023 OpenMMLab.
+   Copyright [yyyy] [name of copyright owner]
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -964,8 +969,8 @@ Copyright 2018-2023 OpenMMLab. All rights reserved.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-# ndlkoten2tei.py
-
+# TEI converter
+# Copyright 2025 Kiyonori Nagasaki
       Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
