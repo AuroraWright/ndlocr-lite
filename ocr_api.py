@@ -187,7 +187,9 @@ class OCRPipeline:
                 
                 if line_w > 0 and line_h > 0:
                     line_elem = ET.SubElement(page, "LINE")
-                    line_elem.set("TYPE", "本文")
+                    c_idx = int(det["class_index"])
+                    type_name = self.classeslist[c_idx] if c_idx < len(self.classeslist) else "本文"
+                    line_elem.set("TYPE", type_name)
                     line_elem.set("X", str(int(xmin)))
                     line_elem.set("Y", str(int(ymin)))
                     line_elem.set("WIDTH", str(line_w))
@@ -224,12 +226,14 @@ class OCRPipeline:
                 xmin, ymin = int(lineobj.get("X")), int(lineobj.get("Y"))
                 line_w, line_h = int(lineobj.get("WIDTH")), int(lineobj.get("HEIGHT"))
                 conf = float(lineobj.get("CONF", 0.0))
+                type_str = lineobj.get("TYPE", "")
                 
                 jsonobj = {
                     "boundingBox": [[xmin, ymin], [xmin+line_w, ymin], [xmin+line_w, ymin+line_h], [xmin, ymin+line_h]],
                     "id": idx,
                     "text": resultlinesall[idx],
-                    "confidence": conf
+                    "confidence": conf,
+                    "type": type_str
                 }
                 tb_json_array.append(jsonobj)
                 
@@ -244,12 +248,14 @@ class OCRPipeline:
                 xmin, ymin = int(lineobj.get("X")), int(lineobj.get("Y"))
                 line_w, line_h = int(lineobj.get("WIDTH")), int(lineobj.get("HEIGHT"))
                 conf = float(lineobj.get("CONF", 0.0))
+                type_str = lineobj.get("TYPE", "")
                 
                 jsonobj = {
                     "boundingBox": [[xmin, ymin], [xmin+line_w, ymin], [xmin+line_w, ymin+line_h], [xmin, ymin+line_h]],
                     "id": idx,
                     "text": resultlinesall[idx],
-                    "confidence": conf
+                    "confidence": conf,
+                    "type": type_str
                 }
                 contents.append([jsonobj])
 
